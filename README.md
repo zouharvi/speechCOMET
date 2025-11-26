@@ -7,7 +7,8 @@ Then, this package can be used in Python with comet_early_exit package. The pack
 Install the package locally and 
 ```bash
 pip3 install -e .
-speechcomet-train ...
+speechcomet-train --cfg configs/models/speech_audio.yaml
+speechcomet-train --cfg configs/models/speech_audiotext.yaml
 speechcomet-score ...
 ```
 
@@ -16,4 +17,17 @@ or in Python:
 import speechcomet
 model = speechcomet.download_model(speechcomet.load_from_checkcpoint("..."))
 model.score(...)
+```
+
+
+## Misc
+
+If you use this work, please cite:
+```bibtex
+@misc{speechcomet26,
+  author={Vilém Zouhar, Maike Züfle},
+  url={https://github.com/zouharvi/speechCOMET},
+  title={SpeechCOMET: audio-source, text-target translation quality estimation},
+  year={2025}
+}
 ```

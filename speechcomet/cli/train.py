@@ -35,12 +35,16 @@ import warnings
 import torch
 from jsonargparse import ActionConfigFile, ArgumentParser, namespace_to_dict
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
-                                         ModelCheckpoint)
+from pytorch_lightning.callbacks import (
+    EarlyStopping, LearningRateMonitor, ModelCheckpoint
+)
 from pytorch_lightning.trainer.trainer import Trainer
 
-from speechcomet.models import (RankingMetric, ReferencelessRegression,
-                          RegressionMetric, UnifiedMetric)
+from speechcomet.models import (
+    RankingMetric, ReferencelessRegression,
+    RegressionMetric, UnifiedMetric,
+    SpeechRegression,
+)
 
 torch.set_float32_matmul_precision('high')
 
@@ -57,6 +61,7 @@ def read_arguments() -> ArgumentParser:
     )
     parser.add_argument("--cfg", action=ActionConfigFile)
     parser.add_subclass_arguments(RegressionMetric, "regression_metric")
+    parser.add_subclass_arguments(SpeechRegression, "speech_regression_metric")
     parser.add_subclass_arguments(
         ReferencelessRegression, "referenceless_regression_metric"
     )
@@ -87,7 +92,8 @@ def initialize_trainer(configs) -> Trainer:
     )
     trainer_args = namespace_to_dict(configs.trainer.init_args)
     lr_monitor = LearningRateMonitor(logging_interval="step")
-    trainer_args["callbacks"] = [early_stop_callback, checkpoint_callback, lr_monitor]
+    trainer_args["callbacks"] = [
+        early_stop_callback, checkpoint_callback, lr_monitor]
     print("TRAINER ARGUMENTS: ")
     print(json.dumps(trainer_args, indent=4, default=lambda x: x.__dict__))
     trainer = Trainer(**trainer_args)
@@ -105,7 +111,8 @@ def initialize_model(configs):
             )
         )
         if configs.load_from_checkpoint is not None:
-            logger.info(f"Loading weights from {configs.load_from_checkpoint}.")
+            logger.info(
+                f"Loading weights from {configs.load_from_checkpoint}.")
             model = RegressionMetric.load_from_checkpoint(
                 checkpoint_path=configs.load_from_checkpoint,
                 strict=configs.strict_load,
@@ -124,7 +131,8 @@ def initialize_model(configs):
             )
         )
         if configs.load_from_checkpoint is not None:
-            logger.info(f"Loading weights from {configs.load_from_checkpoint}.")
+            logger.info(
+                f"Loading weights from {configs.load_from_checkpoint}.")
             model = ReferencelessRegression.load_from_checkpoint(
                 checkpoint_path=configs.load_from_checkpoint,
                 strict=configs.strict_load,
@@ -134,6 +142,26 @@ def initialize_model(configs):
             model = ReferencelessRegression(
                 **namespace_to_dict(configs.referenceless_regression_metric.init_args)
             )
+    elif configs.speech_regression_metric is not None:
+        print(
+            json.dumps(
+                configs.speech_regression_metric.init_args,
+                indent=4,
+                default=lambda x: x.__dict__,
+            )
+        )
+        if configs.load_from_checkpoint is not None:
+            logger.info(
+                f"Loading weights from {configs.load_from_checkpoint}.")
+            model = SpeechRegression.load_from_checkpoint(
+                checkpoint_path=configs.load_from_checkpoint,
+                strict=configs.strict_load,
+                **namespace_to_dict(configs.speech_regression_metric.init_args),
+            )
+        else:
+            model = SpeechRegression(
+                **namespace_to_dict(configs.speech_regression_metric.init_args)
+            )
     elif configs.ranking_metric is not None:
         print(
             json.dumps(
@@ -141,14 +169,16 @@ def initialize_model(configs):
             )
         )
         if configs.load_from_checkpoint is not None:
-            logger.info(f"Loading weights from {configs.load_from_checkpoint}.")
+            logger.info(
+                f"Loading weights from {configs.load_from_checkpoint}.")
             model = RankingMetric.load_from_checkpoint(
                 checkpoint_path=configs.load_from_checkpoint,
                 strict=configs.strict_load,
                 **namespace_to_dict(configs.ranking_metric.init_args),
             )
         else:
-            model = RankingMetric(**namespace_to_dict(configs.ranking_metric.init_args))
+            model = RankingMetric(
+                **namespace_to_dict(configs.ranking_metric.init_args))
     elif configs.unified_metric is not None:
         print(
             json.dumps(
@@ -156,14 +186,16 @@ def initialize_model(configs):
             )
         )
         if configs.load_from_checkpoint is not None:
-            logger.info(f"Loading weights from {configs.load_from_checkpoint}.")
+            logger.info(
+                f"Loading weights from {configs.load_from_checkpoint}.")
             model = UnifiedMetric.load_from_checkpoint(
                 checkpoint_path=configs.load_from_checkpoint,
                 strict=configs.strict_load,
                 **namespace_to_dict(configs.unified_metric.init_args),
             )
         else:
-            model = UnifiedMetric(**namespace_to_dict(configs.unified_metric.init_args))
+            model = UnifiedMetric(
+                **namespace_to_dict(configs.unified_metric.init_args))
     else:
         raise Exception("Model configurations missing!")
 
