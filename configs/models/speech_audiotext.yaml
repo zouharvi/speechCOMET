@@ -8,8 +8,7 @@ speech_regression_metric:
     learning_rate: 1.5e-05
     layerwise_decay: 0.95
     encoder_model: XLM-RoBERTa
-    # TODO: change
-    encoder_model_audio: XLM-RoBERTa
+    encoder_model_audio: sonar_speech_encoder_eng
     input_modality: audiotext
     pretrained_model: xlm-roberta-base
     pool: avg

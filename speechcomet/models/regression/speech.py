@@ -27,6 +27,7 @@ import torch
 from speechcomet.models.regression.regression_metric import RegressionMetric
 from speechcomet.models.utils import Prediction, Target
 from speechcomet.modules import FeedForward
+from speechcomet.encoders.sonar import SONAREncoder
 
 
 class SpeechRegression(RegressionMetric):
@@ -121,19 +122,26 @@ class SpeechRegression(RegressionMetric):
             local_files_only=local_files_only,
         )
         self.save_hyperparameters()
+        self.input_modality = input_modality
+        if self.input_modality == "audio":
+            # somehow self.device is cpu here, so set manually
+            self.encoder_model_audio = SONAREncoder(encoder_model_audio, text_out_dim=self.encoder.output_units, device="cuda")
+
+            if keep_embeddings_frozen:
+                self.encoder_model_audio.freeze_embeddings()
+            else:
+                raise NotImplementedError()
+
+
         self.estimator = FeedForward(
-            # TODO: change dimension computation
-            in_dim=self.encoder.output_units * 4,
+            in_dim=self.encoder.output_units *4, # TODO: adjustment needed?
             hidden_sizes=self.hparams.hidden_sizes,
             activations=self.hparams.activations,
             dropout=self.hparams.dropout,
             final_activation=self.hparams.final_activation,
             out_dim=1,
         )
-
-        # TODO load real model
-        self.encoder_model_audio = encoder_model_audio
-        self.input_modality = input_modality
+       
 
     def requires_references(self) -> bool:
         return False
@@ -159,11 +167,23 @@ class SpeechRegression(RegressionMetric):
             Model inputs and depending on the 'stage' training labels/targets.
         """
         inputs = {k: [str(dic[k]) for dic in sample] for k in sample[0] if k != "score"}
-        src_inputs = self.encoder_audio.prepare_sample(inputs["src"])
+
+        
+        src_inputs=  {"src_input_ids": None, "src_attention_mask": None}
+
+        if self.input_modality in ["text", "audiotext"]:
+            src_inputs = {f"src_{k}": v for k, v in self.encoder.prepare_sample(inputs["src"]).items()}
+
+        if self.input_modality in ["audio", "audiotext"]:
+            src_inputs.update({f"src_{k}": v for k, v in self.encoder_model_audio.prepare_sample(inputs["src_audio"]).items()})
+
+
+        #     src_inputs = self.encoder.prepare_sample(inputs["src"])
+        #     src_inputs = {"src_" + k: v for k, v in src_inputs.items()}
+
         mt_inputs = self.encoder.prepare_sample(inputs["mt"])
 
-        # TODO: change to audio source? or add additional
-        src_inputs = {"src_" + k: v for k, v in src_inputs.items()}
+       
         mt_inputs = {"mt_" + k: v for k, v in mt_inputs.items()}
         model_inputs = {**src_inputs, **mt_inputs}
 
@@ -197,16 +217,27 @@ class SpeechRegression(RegressionMetric):
         Return:
             Prediction object with translation scores.
         """
-        src_sentemb = self.get_sentence_embedding(src_input_ids, src_attention_mask)
+        if self.input_modality == "text":
+            src_sentemb = self.get_sentence_embedding(src_input_ids, src_attention_mask)
+        elif self.input_modality == "audio":
+            waveforms = kwargs.pop("src_waveforms")
+            src_sentemb = self.get_audio_embedding(waveforms)
+        elif self.input_modality == "audiotext":
+            # what todo with audio + text? concat/average/...?
+            raise NotImplementedError()
+        else:
+            raise NotImplementedError("Only audio, audiotext and text are supported.")
         mt_sentemb = self.get_sentence_embedding(mt_input_ids, mt_attention_mask)
-
         diff_src = torch.abs(mt_sentemb - src_sentemb)
         prod_src = mt_sentemb * src_sentemb
 
         embedded_sequences = torch.cat(
             (mt_sentemb, src_sentemb, prod_src, diff_src), dim=1
         )
+
         return Prediction(score=self.estimator(embedded_sequences).view(-1))
+
+
 
     def read_training_data(self, path: str) -> List[dict]:
         """Method that reads the training data (a csv file) and returns a list of
@@ -216,10 +247,10 @@ class SpeechRegression(RegressionMetric):
             List[dict]: List with input samples in the form of a dict
         """
         df = pd.read_csv(path)
-        df = df[["src", "mt", "score"]]
-        # TODO: wav?
+        df = df[["src", "mt", "score", "src_audio"]]
         df["src"] = df["src"].astype(str)
         df["mt"] = df["mt"].astype(str)
+        df["src_audio"] = df["src_audio"].astype(str) 
         df["score"] = df["score"].astype("float16")
         return df.to_dict("records")
 
@@ -231,10 +262,11 @@ class SpeechRegression(RegressionMetric):
             List[dict]: List with input samples in the form of a dict
         """
         df = pd.read_csv(path)
-        columns = ["src", "mt", "score"]
+        columns = ["src", "mt", "score", "src_audio"]
 
         df = df[columns]
         df["score"] = df["score"].astype("float16")
         df["src"] = df["src"].astype(str)
         df["mt"] = df["mt"].astype(str)
+        df["src_audio"] = df["src_audio"].astype(str) 
         return df.to_dict("records")

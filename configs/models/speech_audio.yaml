@@ -8,8 +8,7 @@ speech_regression_metric:
     learning_rate: 1.5e-05
     layerwise_decay: 0.95
     encoder_model: XLM-RoBERTa
-    # TODO: change
-    encoder_model_audio: XLM-RoBERTa
+    encoder_model_audio: sonar_speech_encoder_eng
     input_modality: audio
     pretrained_model: xlm-roberta-base
     pool: avg
@@ -17,11 +16,11 @@ speech_regression_metric:
     layer_transformation: sparsemax
     layer_norm: False
     dropout: 0.1
-    batch_size: 16
+    batch_size: 2
     train_data: 
-      - data/TODO
+      - data/train/dummy.csv
     validation_data:
-      - data/TODO
+      - data/dev/dummy.csv
       
 trainer: ../trainer.yaml
 early_stopping: ../early_stopping.yaml

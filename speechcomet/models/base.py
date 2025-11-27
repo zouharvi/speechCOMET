@@ -261,6 +261,19 @@ class CometModel(ptl.LightningModule, metaclass=abc.ABCMeta):
         """Function that when called turns embedding caching on."""
         self.caching = True
 
+    def get_audio_embedding(
+        self,
+        waveforms: list,
+    ) -> torch.Tensor:
+        """Function that extracts sentence embeddings for
+        a single sentence and allows for caching embeddings.
+        """
+        if self.caching:
+            raise NotImplementedError
+        else:
+            return self.encoder_model_audio(waveforms)
+            
+
     def get_sentence_embedding(
         self,
         input_ids: torch.Tensor,
