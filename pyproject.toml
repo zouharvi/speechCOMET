@@ -37,7 +37,6 @@ dependencies = [
     "torchcodec>=0.8.1",
     "sonar-space",
     "fairseq2",
-
 ]
 
 [project.urls]
