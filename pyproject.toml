@@ -38,6 +38,7 @@ dependencies = [
     "sonar-space",
     "fairseq2",
     "subset2evaluate >= 1.0.15",
+    "tensorboard",
 ]
 
 [project.urls]
